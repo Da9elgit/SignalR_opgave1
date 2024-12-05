@@ -10,5 +10,5 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 //app.MapGet("/", () => "Hello World!");
-app.MapHub<ProductHub>("ProductHub");
+app.MapHub<GameHub>("/gamehub");
 app.Run();
