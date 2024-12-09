@@ -1,69 +1,105 @@
-﻿<style>
-    #board {
-        display: grid;
-        grid-template-columns: repeat(3, 100px);
-        grid-gap: 5px;
-    }
-
-    .cell {
-        width: 100px;
-        height: 100px;
-        border: 1px solid black;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 24px;
-    }
-</style>
-
-<div id="game">
-    <div id="status"></div>
-    <div id="board"></div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr/dist/browser/signalr.min.js"></script>
-<script>
-
-    const connection = new signalR.HubConnectionBuilder()
-        .withUrl("/gamehub")
-        .build();
-
-    let gameId = prompt("Enter game ID or create a new one:");
-    connection.start().then(() => {
-        connection.invoke("CreateGame", gameId).catch(err => console.error(err));
-    });
-
-    connection.on("GameCreated", () => {
-        document.getElementById("status").innerText = "Waiting for another player...";
-    });
-
-    connection.on("GameStarted", () => {
-        document.getElementById("status").innerText = "Game started!";
-    });
-
-    connection.on("UpdateBoard", (board) => {
-        const boardDiv = document.getElementById("board");
-        boardDiv.innerHTML = "";
-        for (let row = 0; row < 3; row++) {
-            for (let col = 0; col < 3; col++) {
-                const cell = document.createElement("div");
-                cell.className = "cell";
-                cell.innerText = board[row][col] || "";
-                cell.onclick = () => {
-                    connection.invoke("MakeMove", gameId, row, col).catch(err => console.error(err));
-                };
-                boardDiv.appendChild(cell);
-            }
+﻿<body>
+    <style>
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-gap: 5px;
         }
-    });
 
-    connection.on("GameWon", (winner) => {
-        alert(winner === connection.connectionId ? "You win!" : "You lose!");
-    });
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 1px solid black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+    </style>
 
-    connection.on("GameDraw", () => {
-        alert("It's a draw!");
-    });
-</script>
+    <div>
+        <h1>Tic Tac Toe</h1>
+        <button onclick="createGame()">Create Game</button>
+        <h2>Available Games:</h2>
+        <ul id="gameList"></ul>
+        <h2 id="status"></h2>
+        <div id="board"></div>
+    </div>
 
+    <script src="../lib/microsoft/signalr/dist/browser/signalr.js"></script>
+    <script>
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/GameHub")
+            .build();
+
+        let currentGameId;
+
+        async function startConnection() {
+            await connection.start();
+
+            // Request available games when connected
+            connection.invoke("RequestAvailableGames");
+        }
+
+        connection.on("UpdateAvailableGames", (games) => {
+            const gameList = document.getElementById("gameList");
+            gameList.innerHTML = ""; // Clear the list
+            games.forEach(gameId => {
+                const gameItem = document.createElement("li");
+                gameItem.innerText = gameId;
+                gameItem.onclick = () => joinGame(gameId);
+                gameList.appendChild(gameItem);
+            });
+        });
+
+        connection.on("GameCreated", () => {
+            document.getElementById("status").innerText = "Waiting for another player...";
+        });
+
+        connection.on("GameStarted", () => {
+            document.getElementById("status").innerText = "Game started!";
+            currentGameId = gameId;
+            // Request the backend to resend the board state
+            connection.Invoke("RequestBoardState", gameId).catch(console.error);
+
+        });
+        connection.on("UpdateBoard", (board) => {
+            const boardDiv = document.getElementById("board");
+            boardDiv.innerHTML = ""; // Clear the board
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const cell = document.createElement("div");
+                    cell.className = "cell";
+                    cell.innerText = board[row][col] || "";
+                    cell.onclick = () => {
+                        connection.invoke("MakeMove", currentGameId, row, col).catch(err => console.error(err));
+                    };
+                    boardDiv.appendChild(cell);
+                }
+            }
+        });
+
+        connection.on("GameWon", (winner) => {
+            alert(winner === connection.connectionId ? "You win!" : "You lose!");
+        });
+
+        connection.on("GameDraw", () => {
+            alert("It's a draw!");
+        });
+        function createGame() {
+            const gameId = prompt("Enter a unique game ID:");
+            currentGameId = gameId;
+            connection.invoke("CreateGame", gameId).catch(console.error);
+        }
+
+        function joinGame(gameId) {
+            currentGameId = gameId;
+            connection.invoke("JoinGame", gameId).catch(console.error);
+        }
+        // On page load, set up the connection
+        startConnection();
+    </script>
+
+</body>
 
