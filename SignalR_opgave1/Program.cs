@@ -9,6 +9,5 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-//app.MapGet("/", () => "Hello World!");
-app.MapHub<ProductHub>("ProductHub");
+app.MapHub<GameHub>("/gameHub");
 app.Run();
