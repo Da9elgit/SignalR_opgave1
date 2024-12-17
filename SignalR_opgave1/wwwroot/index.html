@@ -23,7 +23,12 @@
     <h1>Color Clicker Game</h1>
     <div id="grid"></div>
     <button id="resetButton">Reset Grid</button>
-
+    <div id="turnIndicator">Current Turn: Waiting on players...</div>
+    <div id="playerIndicator">Player #</div>
+    <h3 id="playerWins">Games Won: 0</h3>
+    <div id="trophySection">
+        <!-- Trophy images will appear here -->
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr/dist/browser/signalr.min.js"></script>
     <script>
         const connection = new signalR.HubConnectionBuilder()
@@ -36,7 +41,7 @@
             connection.invoke("ResetGrid").catch(err => console.error(err.toString()));
         }).catch(err => console.error("Error starting connection:", err.toString()));
 
-
+        let gamesWon = 0; // Initial win count
         const gridElement = document.getElementById("grid");
         const gridSize = 5;
 
@@ -48,9 +53,11 @@
                 const cell = document.createElement("div");
                 cell.className = "cell";
                 cell.style.backgroundColor = grid[i] || "white";
-                cell.addEventListener("click", () => {
-                    connection.invoke("ClickCell", i).catch(err => console.error(err.toString()));
-                });
+                if (!grid[i]) {
+                    cell.addEventListener("click", () => {
+                        connection.invoke("ClickCell", i).catch(err => console.error(err.toString()));
+                    });
+                }
                 gridElement.appendChild(cell);
             }
 
@@ -60,11 +67,35 @@
             connection.invoke("ResetGrid").catch(err => console.error(err.toString()));
         });
 
-        connection.start().then(() => {
-            console.log("Connected to SignalR hub.");
-            // Initialize empty grid
-            connection.invoke("ResetGrid").catch(err => console.error(err.toString()));
-        }).catch(err => console.error(err.toString()));
+        connection.on("PlayerIdStatus", (currentPlayer, connectionId) => {
+            console.log(connectionId, " is ready as ", currentPlayer);
+            if (connectionId === connection.connectionId) {
+                document.getElementById("playerIndicator").innerText = `You are ${currentPlayer}`;
+            }
+        });
+
+        connection.on("PlayerTurnStatus", (currentPlayer) => {
+            console.log("Current player is:", currentPlayer);
+            document.getElementById("turnIndicator").innerText = `Current Turn: ${currentPlayer}`;
+        });
+
+        connection.on("DeclareWinner", (currentPlayer) => {
+            // Show an alert notifying the winner
+            alert(`Congratulations! ${currentPlayer} has won the game!`);
+            gamesWon++;
+            document.getElementById("playerWins").innerText = `Games Won: ${gamesWon}`;
+            addTrophy();
+        });
+
+        function AddTrophy() {
+            const trophySection = document.getElementById("trophySection");
+            const trophyImage = document.createElement("img");
+            trophyImage.src = "https://cdn-icons-png.flaticon.com/512/1828/1828884.png";
+            trophyImage.alt = "Valuable Trophy";
+            trophyImage.classList.add("trophy");
+            trophyImage.appendChild(trophyImage);
+
+        }
     </script>
 </body>
 </html>
